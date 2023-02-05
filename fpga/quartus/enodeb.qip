@@ -1,0 +1,13 @@
+set modelsim 0
+
+# ENODEB IP files
+source [file normalize [file join $::quartus(qip_path) ../common/enodeb_files.tcl]]
+
+
+foreach f $enodeb_synthesis_tx {
+    set_global_assignment -library "enodeb" -name VHDL_FILE [file normalize [file join $::quartus(qip_path) $f]] -hdl_version VHDL_2008
+}
+
+foreach f $enodeb_synthesis_top {
+    set_global_assignment -library "enodeb" -name VHDL_FILE [file normalize [file join $::quartus(qip_path) $f]] -hdl_version VHDL_2008
+}
