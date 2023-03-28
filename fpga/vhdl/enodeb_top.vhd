@@ -9,55 +9,86 @@ library nuand;
 entity enodeb_top is
   port (
     tx_clock                :   in      std_logic ;
-    tx_reset                :   in      std_logic;
-    tx_packet_empty         :   in      std_logic;
+    tx_reset                :   in      std_logic ;
     tx_packet_control       :   in      packet_control_t;
-    tx_led_1                :   out     std_logic ;
-    tx_led_2                :   out     std_logic ;
-    tx_led_3                :   out     std_logic
+    tx_packet_empty         :   in      std_logic;
+    tx_packet_ready         :   out     std_logic;
+    tx_leds                 :   out     std_logic_vector( 2 downto 0)
   ) ;
 end enodeb_top ;
 
 architecture simple of enodeb_top is
-  signal packet_counter : natural range 0 to 3 := 0;
+  type fsm_tx_t is (RESET,WAIT_FOR_SOP,WAIT_FOR_EOP,EOP_FOUND,LAST);
+  type state_tx_t is record
+    fsm : fsm_tx_t;
+    ready_for_packet : std_logic;
+    timer : natural range 0 to 62500000 ;
+  end record;
+  signal current_tx_state, future_tx_state          :  state_tx_t ;
+  attribute keep: boolean;
+  attribute noprune: boolean;
+  attribute preserve: boolean;
+  attribute keep of current_tx_state : signal is true;
+  attribute noprune of current_tx_state : signal is true;
+  attribute preserve of current_tx_state : signal is true;
+
+function NULL_TX_STATE return state_tx_t is
+  variable rv : state_tx_t;
+begin
+  rv.fsm := RESET ;
+  rv.ready_for_packet := '0' ;
+  rv.timer := 0;
+  return rv ;
+end function ;
+
 begin
 
-  blink_leds : process (tx_clock)
-  begin
-    if (rising_edge(tx_clock)) then
-        if (packet_counter = 0) then
-            tx_led_2 <= '1';
-            tx_led_1 <= '1';
-            tx_led_3 <= '1';
-        elsif (packet_counter = 1) then
-            tx_led_2 <= '0';
-            tx_led_1 <= '1';
-            tx_led_3 <= '1';
-        elsif (packet_counter = 2) then
-            tx_led_2 <= '0';
-            tx_led_1 <= '0';
-            tx_led_3 <= '1';
-        elsif (packet_counter = 3) then
-            tx_led_2 <= '0';
-            tx_led_1 <= '0';
-            tx_led_3 <= '0';
-        end if;
-    end if;
-  end process;
+tx_packet_ready <= '1' when (current_tx_state.ready_for_packet = '1' ) else '0' ;
 
+tx_leds <= "000" when (current_tx_state.fsm = WAIT_FOR_EOP ) else
+           "011" when (current_tx_state.fsm = WAIT_FOR_SOP) else
+           "101" when (current_tx_state.fsm = EOP_FOUND) else
+           "001" when (current_tx_state.fsm = LAST) else
+           "111";
 
-  receive_packets : process(tx_clock)
-  begin
-    if (rising_edge(tx_clock)) then
-      if tx_packet_empty = '0' then
-        if(packet_counter = 3) then
-          packet_counter <= 0;
-        end if;
-        if(tx_packet_control.data_valid = '1') then
-        packet_counter <= packet_counter + 1;
-        end if;
+tx_state_comb : process(all)
+begin
+  future_tx_state <= current_tx_state;
+  case current_tx_state.fsm is
+    when RESET =>
+      future_tx_state.fsm <= WAIT_FOR_SOP;
+      future_tx_state.ready_for_packet <= '1';
+    when WAIT_FOR_SOP =>
+      if(tx_packet_control.pkt_sop = '1') then
+        future_tx_state.ready_for_packet <= '1';
+        future_tx_state.fsm <= WAIT_FOR_EOP;
+      else
+        future_tx_state.fsm <= WAIT_FOR_SOP;
+        future_tx_state.ready_for_packet <= '1';
       end if;
-    end if;
-  end process;
+    when WAIT_FOR_EOP =>
+      if(tx_packet_control.pkt_eop = '1') then
+        future_tx_state.ready_for_packet <= '1';
+        future_tx_state.fsm <= EOP_FOUND;
+      else
+        future_tx_state.ready_for_packet <= '1';
+        future_tx_state.fsm <= WAIT_FOR_EOP;
+      end if;
+    when EOP_FOUND =>
+      future_tx_state.fsm <= LAST;
+    when LAST =>
+      future_tx_state.fsm <= RESET;
+  end case;
+end process tx_state_comb;
+
+
+process(tx_clock, tx_reset)
+begin
+  if( tx_reset = '1' ) then
+    current_tx_state <= NULL_TX_STATE ;
+  elsif( rising_edge(tx_clock) ) then
+    current_tx_state <= future_tx_state ;
+  end if ;
+end process ;
 
 end simple;
