@@ -1,5 +1,5 @@
 # bladeRF-enodeb
-The bladeRF-enodeb project is an open-source implementation of the 3GPP eNodeB VHDL modem. The modem modulates and demodulates LTE radio traffic directly on the bladeRF 2.0 micro xA9’s FPGA. The bladeRF-enodeb coupled with a FAPI compatible MAC allows the bladeRF 2.0 micro xA9 to become a software defined radio  eNodeB.
+The bladeRF-enodeb project is an open-source LTE eNodeB VHDL modem. The modem modulates and demodulates LTE radio traffic directly on the bladeRF 2.0 micro xA9’s FPGA. The bladeRF-enodeb coupled with a FAPI compatible MAC allows the bladeRF 2.0 micro xA9 to become a software defined radio eNodeB.
 
 ## Milestones
 #### 4G LTE Downlink TX:
