@@ -41,7 +41,6 @@ function NULL_TX_STATE return state_tx_t is
 begin
   rv.fsm := IDLE ;
   rv.ready_for_packet := '0' ;
-  rv.timer := 0;
   rv.transport_block_dwords := 0;
   rv.read_dwords := 0;
   rv.data := (others => '0');
